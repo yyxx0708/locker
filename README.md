@@ -62,3 +62,7 @@ adb install -r Locker-1.9.apk
 - [ADR 0004：自定义事件类型](docs/adr/0004-custom-event-types.md)
 - [ADR 0005：每日照片](docs/adr/0005-daily-photos.md)
 - [ADR 0006：按人物与日期固定的随机数](docs/adr/0006-daily-random-number.md)
+
+## 许可证
+
+[MIT](LICENSE) © 2026 yyxx0708
