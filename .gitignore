@@ -1,0 +1,32 @@
+# Gradle / Kotlin
+.gradle/
+build/
+app/build/
+.kotlin/
+local.properties
+
+# 签名密钥，绝不入库
+keystore.properties
+*.keystore
+*.jks
+
+# IDE
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# 构建产物
+*.apk
+*.aab
+*.hprof
+
+# 本机 AI 工具配置
+.claude/
+.agents/
+skills-lock.json
+
+# 系统
+.DS_Store
+Thumbs.db
