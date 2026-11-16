@@ -1,0 +1,87 @@
+{
+  "persons": [
+    {
+      "createdAt": 1700000000000,
+      "name": "我",
+      "id": 1
+    },
+    {
+      "createdAt": 1700000001000,
+      "name": "小A",
+      "id": 2
+    }
+  ],
+  "schemaVersion": 3,
+  "exportedAt": 1700000000000,
+  "eventTypes": [
+    {
+      "typeKey": "locked",
+      "colorArgb": 4280973526,
+      "sortOrder": 0,
+      "builtIn": true,
+      "name": "锁射"
+    },
+    {
+      "typeKey": "unlocked",
+      "colorArgb": 4293617716,
+      "sortOrder": 1,
+      "builtIn": true,
+      "name": "开锁射精"
+    },
+    {
+      "typeKey": "custom-1",
+      "colorArgb": 4281245275,
+      "sortOrder": 2,
+      "builtIn": false,
+      "name": "自定义"
+    }
+  ],
+  "events": [
+    {
+      "note": null,
+      "occurredAt": 1699156800000,
+      "personId": 1,
+      "type": "locked"
+    },
+    {
+      "note": "备注含中文",
+      "occurredAt": 1699182000000,
+      "personId": 1,
+      "type": "unlocked"
+    },
+    {
+      "note": null,
+      "occurredAt": 1699185600000,
+      "personId": 1,
+      "type": "custom-1"
+    },
+    {
+      "note": null,
+      "occurredAt": 1699599600000,
+      "personId": 2,
+      "type": "locked"
+    }
+  ],
+  "segments": [
+    {
+      "personId": 1,
+      "endAt": 1698771600000,
+      "startAt": 1698764400000
+    },
+    {
+      "personId": 1,
+      "endAt": 1699181100000,
+      "startAt": 1699144200000
+    },
+    {
+      "personId": 1,
+      "endAt": null,
+      "startAt": 1700442000000
+    },
+    {
+      "personId": 2,
+      "endAt": 1699617600000,
+      "startAt": 1699588800000
+    }
+  ]
+}

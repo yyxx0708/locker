@@ -3,8 +3,10 @@ package com.yxsdc.locker.data
 import androidx.room.withTransaction
 import com.yxsdc.locker.domain.generateFiveDigitNumber
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.security.SecureRandom
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 
 class LockerRepository(
@@ -17,9 +19,24 @@ class LockerRepository(
 
     val eventTypes: Flow<List<EventTypeEntity>> = dao.observeEventTypes()
 
-    fun segments(personId: Long): Flow<List<WearSegment>> = dao.observeSegments(personId)
+    fun observeActiveSegment(personId: Long): Flow<WearSegment?> =
+        dao.observeActiveSegment(personId).map { it.firstOrNull() }
 
-    fun events(personId: Long): Flow<List<EventRecord>> = dao.observeEvents(personId)
+    fun observeSegmentCount(personId: Long): Flow<Int> = dao.observeSegmentCount(personId)
+
+    fun observeEventCount(personId: Long): Flow<Int> = dao.observeEventCount(personId)
+
+    fun observeSegmentsOverlapping(
+        personId: Long,
+        start: Long,
+        endExclusive: Long,
+    ): Flow<List<WearSegment>> = dao.observeSegmentsOverlapping(personId, start, endExclusive)
+
+    fun observeEventsInRange(
+        personId: Long,
+        from: Long,
+        toExclusive: Long,
+    ): Flow<List<EventRecord>> = dao.observeEventsInRange(personId, from, toExclusive)
 
     fun observeDailyPhotos(
         personId: Long,
@@ -82,6 +99,7 @@ class LockerRepository(
                 epochDay = epochDay,
                 jpeg = jpeg,
                 updatedAt = System.currentTimeMillis(),
+                fingerprint = DailyReport.photoFingerprint(jpeg),
             )
         )
     }
@@ -117,6 +135,7 @@ class LockerRepository(
             dao.deleteEventsForPerson(person.id)
             dao.deleteDailyPhotosForPerson(person.id)
             dao.deleteDailyRandomNumbersForPerson(person.id)
+            dao.deleteSyncIdentityForPerson(person.id)
             dao.deletePerson(person)
         }
     }
@@ -177,7 +196,7 @@ class LockerRepository(
 
     suspend fun stopWearing(personId: Long, now: Long) {
         db.withTransaction {
-            val active = dao.getSegments(personId).lastOrNull { it.endAt == null }
+            val active = dao.getActiveSegment(personId)
                 ?: error("当前人物未佩戴")
             require(now >= active.startAt) { "取下时间不能早于戴上时间" }
             dao.updateSegment(active.copy(endAt = now))
@@ -193,7 +212,7 @@ class LockerRepository(
 
     suspend fun updateSegment(id: Long, personId: Long, startAt: Long, endAt: Long?) {
         db.withTransaction {
-            val existing = dao.getSegments(personId).firstOrNull { it.id == id }
+            val existing = dao.getSegment(id, personId)
                 ?: error("分段不存在")
             validateSegment(personId = personId, id = id, startAt = startAt, endAt = endAt)
             dao.updateSegment(existing.copy(startAt = startAt, endAt = endAt))
@@ -212,25 +231,13 @@ class LockerRepository(
     ) {
         require(endAt == null || endAt >= startAt) { "取下时间不能早于戴上时间" }
 
-        val others = dao.getSegments(personId).filter { it.id != id }
-        val candidate = WearSegment(
-            id = id ?: -1L,
+        // 只取与该区间相交的分段，避免每次锁上/开锁都读取并排序全部分段
+        val overlapping = dao.getSegmentsOverlapping(
             personId = personId,
-            startAt = startAt,
-            endAt = endAt,
-        )
-        val sorted = (others + candidate).sortedBy { it.startAt }
-
-        var previousEnd = Long.MIN_VALUE
-        for (segment in sorted) {
-            val segmentEnd = segment.endAt ?: Long.MAX_VALUE
-            require(segmentEnd >= segment.startAt) { "分段结束时间不能早于开始时间" }
-            require(segment.startAt >= previousEnd) { "同一人物的分段之间不能重叠" }
-            previousEnd = segmentEnd
-        }
-        require(sorted.count { it.endAt == null } <= 1) {
-            "同一人物同时只能有一个佩戴中的分段"
-        }
+            start = startAt,
+            endExclusive = endAt ?: Long.MAX_VALUE,
+        ).filter { it.id != id }
+        require(overlapping.isEmpty()) { "同一人物的分段之间不能重叠" }
     }
 
     suspend fun addEvent(
@@ -301,6 +308,7 @@ class LockerRepository(
             dao.clearSegments()
             dao.clearDailyPhotos()
             dao.clearDailyRandomNumbers()
+            dao.clearSyncIdentities()
             dao.clearPersons()
             dao.clearEventTypes()
 
@@ -338,6 +346,355 @@ class LockerRepository(
         }
     }
 
+    // ---- 掌管者同步 ----
+
+    suspend fun getSyncIdentityForPerson(personId: Long): SyncIdentity? =
+        dao.getSyncIdentityForPerson(personId)
+
+    suspend fun getSyncIdentity(identityId: String): SyncIdentity? =
+        dao.getSyncIdentity(identityId)
+
+    suspend fun getAllSyncIdentities(): List<SyncIdentity> = dao.getAllSyncIdentities()
+
+    suspend fun ensureSyncIdentity(person: Person): SyncIdentity {
+        dao.getSyncIdentityForPerson(person.id)?.let { return it }
+        val identity = SyncIdentity(
+            identityId = UUID.randomUUID().toString(),
+            personId = person.id,
+            displayName = person.name,
+            code = SyncCrypto.generateCode(),
+            codeSalt = SyncCrypto.newSalt(),
+            createdAt = System.currentTimeMillis(),
+        )
+        dao.upsertSyncIdentity(identity)
+        return identity
+    }
+
+    suspend fun regenerateSyncCode(identity: SyncIdentity): SyncIdentity {
+        val updated = identity.copy(
+            code = SyncCrypto.generateCode(),
+            codeSalt = SyncCrypto.newSalt(),
+        )
+        dao.upsertSyncIdentity(updated)
+        return updated
+    }
+
+    suspend fun markIdentityExported(identityId: String, at: Long = System.currentTimeMillis()) {
+        val identity = dao.getSyncIdentity(identityId) ?: return
+        dao.upsertSyncIdentity(identity.copy(lastExportedAt = at))
+    }
+
+    suspend fun collectSyncExport(
+        person: Person,
+        fromEpochDay: Long,
+        toEpochDay: Long,
+    ): SyncExportData {
+        val zone = ZoneId.systemDefault()
+        val fromMillis = LocalDate.ofEpochDay(fromEpochDay)
+            .atStartOfDay(zone).toInstant().toEpochMilli()
+        val toMillis = LocalDate.ofEpochDay(toEpochDay).plusDays(1)
+            .atStartOfDay(zone).toInstant().toEpochMilli() - 1
+        val identity = ensureSyncIdentity(person)
+        // 用"与窗口相交"而不是"开始时间落在窗口内"：跨窗口起点的分段也要带上，
+        // 否则 0 点前锁上、早上开锁的这一天会缺少分段。
+        val segments = dao.getSegmentsOverlapping(
+            person.id,
+            fromMillis,
+            toMillis + 1,
+        )
+        val events = dao.getEventsInRange(person.id, fromMillis, toMillis)
+        // 只取照片元信息，JPEG 字节留到打包时逐张读取
+        val photos = photoMetas(person.id, fromEpochDay, toEpochDay)
+        val numbers = dao.getDailyRandomNumbersInRange(person.id, fromEpochDay, toEpochDay)
+        val usedTypes = events.map { it.type }.toSet()
+        val types = dao.getEventTypes().filter { it.typeKey in usedTypes }
+        return SyncExportData(identity, person, types, segments, events, numbers, photos)
+    }
+
+    suspend fun createPersonForImport(name: String): Long {
+        val trimmed = normalizePersonName(name)
+        return dao.insertPerson(Person(name = trimmed, createdAt = System.currentTimeMillis()))
+    }
+
+    suspend fun bindSyncIdentity(
+        manifest: SyncPackage.Manifest,
+        code: String,
+        personId: Long,
+    ): SyncIdentity {
+        val identity = SyncIdentity(
+            identityId = manifest.identityId,
+            personId = personId,
+            displayName = manifest.identityName,
+            code = code,
+            codeSalt = manifest.codeSalt,
+            createdAt = System.currentTimeMillis(),
+        )
+        dao.upsertSyncIdentity(identity)
+        return identity
+    }
+
+    /**
+     * 应用勾选的差异。整体在事务内执行；号码撞全局唯一约束时跳过并返回被跳过的日期描述。
+     */
+    suspend fun applySyncImport(
+        personId: Long,
+        payloadTypes: List<EventTypeEntity>,
+        selected: List<SyncChange>,
+        loadPhoto: (epochDay: Long) -> ByteArray? = { null },
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ): List<String> = db.withTransaction {
+        val existingTypes = dao.getEventTypes().map { it.typeKey }.toHashSet()
+        selected.mapNotNull { it.incomingEvent?.type }.toSet()
+            .filter { it !in existingTypes }
+            .forEach { typeKey ->
+                payloadTypes.firstOrNull { it.typeKey == typeKey }?.let {
+                    dao.insertEventType(it.copy(id = 0))
+                }
+            }
+
+        val skipped = mutableListOf<String>()
+        selected.forEachIndexed { index, change ->
+            when (change.category) {
+                SyncCategory.SEGMENT -> when (change.action) {
+                    SyncAction.ADD -> {
+                        val incoming = change.incomingSegment ?: return@forEachIndexed
+                        dao.insertSegment(
+                            WearSegment(
+                                personId = personId,
+                                startAt = incoming.startAt,
+                                endAt = incoming.endAt,
+                            )
+                        )
+                    }
+
+                    SyncAction.REMOVE -> change.localSegment?.let { dao.deleteSegment(it) }
+
+                    SyncAction.MODIFY -> {
+                        val local = change.localSegment ?: return@forEachIndexed
+                        val incoming = change.incomingSegment ?: return@forEachIndexed
+                        dao.updateSegment(local.copy(endAt = incoming.endAt))
+                    }
+                }
+
+                SyncCategory.EVENT -> when (change.action) {
+                    SyncAction.ADD -> {
+                        val incoming = change.incomingEvent ?: return@forEachIndexed
+                        dao.insertEvent(
+                            EventRecord(
+                                personId = personId,
+                                type = incoming.type,
+                                occurredAt = incoming.occurredAt,
+                                note = incoming.note?.takeIf { it.isNotBlank() },
+                            )
+                        )
+                    }
+
+                    SyncAction.REMOVE -> change.localEvent?.let { dao.deleteEvent(it) }
+
+                    SyncAction.MODIFY -> {
+                        val local = change.localEvent ?: return@forEachIndexed
+                        val incoming = change.incomingEvent ?: return@forEachIndexed
+                        dao.updateEvent(
+                            local.copy(
+                                type = incoming.type,
+                                occurredAt = incoming.occurredAt,
+                                note = incoming.note?.takeIf { it.isNotBlank() },
+                            )
+                        )
+                    }
+                }
+
+                SyncCategory.PHOTO -> when (change.action) {
+                    SyncAction.ADD, SyncAction.MODIFY -> {
+                        val photo = change.incomingPhoto ?: return@forEachIndexed
+                        val jpeg = loadPhoto(photo.epochDay) ?: return@forEachIndexed
+                        dao.upsertDailyPhoto(
+                            DailyPhoto(
+                                personId = personId,
+                                epochDay = photo.epochDay,
+                                jpeg = jpeg,
+                                updatedAt = System.currentTimeMillis(),
+                                fingerprint = photo.fingerprint.takeIf { it.isNotEmpty() }
+                                    ?: DailyReport.photoFingerprint(jpeg),
+                            )
+                        )
+                    }
+
+                    SyncAction.REMOVE -> change.localPhotoDay?.let {
+                        dao.deleteDailyPhoto(personId, it)
+                    }
+                }
+
+                SyncCategory.RANDOM_NUMBER -> {
+                    val incoming = change.incomingNumber
+                    when (change.action) {
+                        SyncAction.ADD -> if (incoming != null) {
+                            val conflict = dao.findNumberConflict(
+                                incoming.epochDay, incoming.number, personId
+                            ) != null
+                            if (conflict) {
+                                skipped += describeDay(incoming.epochDay)
+                            } else {
+                                val inserted = dao.insertDailyRandomNumber(
+                                    DailyRandomNumber(
+                                        personId = personId,
+                                        epochDay = incoming.epochDay,
+                                        number = incoming.number,
+                                        createdAt = incoming.createdAt,
+                                    )
+                                )
+                                if (inserted == -1L) skipped += describeDay(incoming.epochDay)
+                            }
+                        }
+
+                        SyncAction.MODIFY -> {
+                            val local = change.localNumber
+                            if (local != null && incoming != null) {
+                                val conflict = dao.findNumberConflict(
+                                    incoming.epochDay, incoming.number, personId
+                                ) != null
+                                if (conflict) {
+                                    skipped += describeDay(incoming.epochDay)
+                                } else {
+                                    dao.updateDailyRandomNumber(local.copy(number = incoming.number))
+                                }
+                            }
+                        }
+
+                        SyncAction.REMOVE -> change.localNumber?.let {
+                            dao.deleteDailyRandomNumber(personId, it.epochDay)
+                        }
+                    }
+                }
+            }
+            onProgress(index + 1, selected.size)
+        }
+        skipped
+    }
+
+    suspend fun getPersonById(id: Long): Person? = dao.getPerson(id)
+
+    suspend fun getEventTypesList(): List<EventTypeEntity> = dao.getEventTypes()
+
+    suspend fun getSegmentsOverlapping(
+        personId: Long,
+        start: Long,
+        endExclusive: Long,
+    ): List<WearSegment> = dao.getSegmentsOverlapping(personId, start, endExclusive)
+
+    suspend fun getEventsInRange(
+        personId: Long,
+        from: Long,
+        to: Long,
+    ): List<EventRecord> = dao.getEventsInRange(personId, from, to)
+
+    suspend fun getDailyPhotosInRange(
+        personId: Long,
+        startEpochDay: Long,
+        endEpochDay: Long,
+    ): List<DailyPhoto> = dao.getDailyPhotosInRange(personId, startEpochDay, endEpochDay)
+
+    /** 读取单张照片的 JPEG 字节，供同步打包逐张流式读取。 */
+    suspend fun getDailyPhotoBytes(personId: Long, epochDay: Long): ByteArray? =
+        dao.getDailyPhoto(personId, epochDay)?.jpeg
+
+    /** 读取单张照片，供同步打包逐张写入。 */
+    suspend fun getDailyPhoto(personId: Long, epochDay: Long): DailyPhoto? =
+        dao.getDailyPhoto(personId, epochDay)
+
+    /**
+     * 照片元信息列表。旧数据没有指纹（迁移时留空），这里按需补算并写回，
+     * 之后比对就不再读取照片字节。
+     */
+    private suspend fun photoMetas(
+        personId: Long,
+        fromEpochDay: Long,
+        toEpochDay: Long,
+    ): List<SyncPackage.SyncPhotoRef> =
+        photoMetaDetails(personId, fromEpochDay, toEpochDay)
+            .map { SyncPackage.SyncPhotoRef(it.epochDay, it.fingerprint) }
+
+    /**
+     * 照片元信息；旧数据没有指纹（迁移时留空）时按需补算并写回，
+     * 之后比对与打包都不再读取照片字节。
+     */
+    private suspend fun photoMetaDetails(
+        personId: Long,
+        fromEpochDay: Long,
+        toEpochDay: Long,
+    ): List<DailyPhotoMeta> =
+        dao.getDailyPhotoMetas(personId, fromEpochDay, toEpochDay).map { meta ->
+            if (meta.fingerprint.isNotEmpty()) {
+                meta
+            } else {
+                val photo = dao.getDailyPhoto(personId, meta.epochDay)
+                val fingerprint = photo?.let { DailyReport.photoFingerprint(it.jpeg) } ?: ""
+                if (photo != null && fingerprint.isNotEmpty()) {
+                    dao.upsertDailyPhoto(photo.copy(fingerprint = fingerprint))
+                }
+                meta.copy(fingerprint = fingerprint)
+            }
+        }
+
+    /** 指定窗口内照片的总体积，用于发送前提示。 */
+    suspend fun photoBytesInRange(
+        personId: Long,
+        fromEpochDay: Long,
+        toEpochDay: Long,
+    ): Long = photoMetaDetails(personId, fromEpochDay, toEpochDay).sumOf { it.byteSize }
+
+    /** 发送前预检：窗口内的照片数量与体积。 */
+    suspend fun syncExportEstimate(
+        personId: Long,
+        fromEpochDay: Long,
+        toEpochDay: Long,
+    ): SyncExportEstimate {
+        val metas = photoMetaDetails(personId, fromEpochDay, toEpochDay)
+        return SyncExportEstimate(
+            photoCount = metas.size,
+            photoBytes = metas.sumOf { it.byteSize },
+        )
+    }
+
+    suspend fun getDailyRandomNumber(
+        personId: Long,
+        epochDay: Long,
+    ): DailyRandomNumber? = dao.getDailyRandomNumber(personId, epochDay)
+
+    suspend fun getPersonsList(): List<Person> = dao.getPersons()
+
+    fun observeDailyRandomNumbers(
+        personId: Long,
+        startEpochDay: Long,
+        endEpochDay: Long,
+    ): Flow<List<DailyRandomNumber>> =
+        dao.observeDailyRandomNumbersInRange(personId, startEpochDay, endEpochDay)
+
+    /** 读取本地指定人物在窗口内的数据，供导入差异比对使用。 */
+    suspend fun collectLocalRange(
+        personId: Long?,
+        fromEpochDay: Long,
+        toEpochDay: Long,
+    ): SyncLocalSlice {
+        if (personId == null) {
+            return SyncLocalSlice(emptyList(), emptyList(), emptyList(), emptyList())
+        }
+        val zone = ZoneId.systemDefault()
+        val fromMillis = LocalDate.ofEpochDay(fromEpochDay)
+            .atStartOfDay(zone).toInstant().toEpochMilli()
+        val toMillis = LocalDate.ofEpochDay(toEpochDay).plusDays(1)
+            .atStartOfDay(zone).toInstant().toEpochMilli() - 1
+        return SyncLocalSlice(
+            segments = dao.getSegmentsOverlapping(personId, fromMillis, toMillis + 1),
+            events = dao.getEventsInRange(personId, fromMillis, toMillis),
+            photos = photoMetas(personId, fromEpochDay, toEpochDay),
+            numbers = dao.getDailyRandomNumbersInRange(personId, fromEpochDay, toEpochDay),
+        )
+    }
+
+    private fun describeDay(epochDay: Long): String = LocalDate.ofEpochDay(epochDay)
+        .format(java.time.format.DateTimeFormatter.ofPattern("M月d日", java.util.Locale.CHINA))
+
     private fun normalizePersonName(name: String): String {
         val trimmed = name.trim()
         require(trimmed.isNotEmpty()) { "人物名称不能为空" }
@@ -356,3 +713,28 @@ class LockerRepository(
         const val OPAQUE_ALPHA = 0xFF000000L
     }
 }
+
+/** 导出时从数据库收集到的同步数据（未打包）。 */
+data class SyncExportData(
+    val identity: SyncIdentity,
+    val person: Person,
+    val eventTypes: List<EventTypeEntity>,
+    val segments: List<WearSegment>,
+    val events: List<EventRecord>,
+    val randomNumbers: List<DailyRandomNumber>,
+    val photos: List<SyncPackage.SyncPhotoRef>,
+)
+
+/** 本地窗口数据切片，用于导入差异比对。 */
+data class SyncLocalSlice(
+    val segments: List<WearSegment>,
+    val events: List<EventRecord>,
+    val photos: List<SyncPackage.SyncPhotoRef>,
+    val numbers: List<DailyRandomNumber>,
+)
+
+/** 发送前预检结果：窗口内的照片数量与体积。 */
+data class SyncExportEstimate(
+    val photoCount: Int,
+    val photoBytes: Long,
+)

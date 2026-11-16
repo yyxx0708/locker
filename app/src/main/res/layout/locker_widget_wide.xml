@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  4×2 标准版：左侧「人物 / 佩戴中 / 打卡徽标」信息列，右侧大号时长。
+  横向布局让 60sp 的数字有足够空间，也不会把卡片撑高。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="20dp"
+    android:paddingEnd="20dp"
+    android:paddingTop="16dp"
+    android:paddingBottom="16dp">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/widget_person"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/app_name"
+                android:textColor="@color/widget_ink"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <!-- 静态呼吸点：RemoteViews 不支持 ViewFlipper 动画，部分启动器会因此加载失败 -->
+            <ImageView
+                android:id="@+id/widget_pulse"
+                android:layout_width="11dp"
+                android:layout_height="11dp"
+                android:layout_marginStart="8dp"
+                android:contentDescription="@null"
+                android:src="@drawable/widget_pulse_bright"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/widget_wearing_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="@string/widget_status_wearing"
+                android:textColor="@color/widget_accent"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_checkin"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/widget_badge_pending"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:paddingStart="10dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="4dp"
+            android:text="@string/widget_checkin_pending"
+            android:textColor="@color/widget_badge_text_pending"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <Chronometer
+        android:id="@+id/widget_chronometer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.9"
+        android:autoSizeMaxTextSize="54sp"
+        android:autoSizeMinTextSize="26sp"
+        android:autoSizeStepGranularity="2sp"
+        android:autoSizeTextType="uniform"
+        android:fontFamily="monospace"
+        android:gravity="end"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:textColor="@color/widget_ink"
+        android:textSize="54sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/widget_idle_duration"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:gravity="end"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:text="@string/widget_status_idle"
+        android:textColor="@color/widget_muted"
+        android:textSize="34sp"
+        android:textStyle="bold" />
+</LinearLayout>

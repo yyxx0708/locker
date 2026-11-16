@@ -1,0 +1,11 @@
+{
+  "ivHex": "d38c29b36cb33d5e103cdf44",
+  "layout": "IV(12) || ciphertext || tag(16)",
+  "salt": "00112233445566778899aabbccddeeff",
+  "code": "ABCD-EFGH",
+  "plaintextHex": "e4bda0e5a5bdefbc8c4c6f636b657220e5908ce6ada5e695b0e68dae",
+  "tagBits": 128,
+  "ciphertextWithTagHex": "75fb4ce08fdf2c6dfcfaa08f3258f3e1f17a1ce5caf3404fc52e6b45480a244b6847882bda32286953b98029",
+  "plaintextUtf8": "你好，Locker 同步数据",
+  "ivBytes": 12
+}

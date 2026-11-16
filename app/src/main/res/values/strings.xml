@@ -1,3 +1,26 @@
 <resources>
     <string name="app_name">Locker</string>
+    <string name="shortcut_send_today_short">发送今日数据</string>
+    <string name="shortcut_send_today_long">发送今天的佩戴记录与照片给掌管者</string>
+
+    <string name="widget_description">显示某个人物的佩戴状态与今日打卡情况</string>
+    <string name="widget_label">Locker 佩戴状态</string>
+    <string name="widget_status_idle">未佩戴</string>
+    <string name="widget_status_wearing">佩戴中</string>
+    <string name="widget_checkin_done">✓ 今日已打卡</string>
+    <string name="widget_checkin_pending">今日未打卡</string>
+    <string name="widget_person_deleted">人物已删除</string>
+    <string name="widget_person_deleted_action">点按重新选择</string>
+    <string name="widget_not_bound">未绑定人物</string>
+    <string name="widget_choose_person">点按选择人物</string>
+
+    <!-- 小组件配置界面 -->
+    <string name="widget_config_title">选择人物</string>
+    <string name="widget_config_hint">这个小组件只显示所选人物的佩戴状态。</string>
+    <string name="widget_config_in_use">已在桌面使用</string>
+    <string name="widget_config_no_person">还没有人物</string>
+    <string name="widget_config_no_person_hint">先打开 App 创建一个人物，再添加小组件。</string>
+    <string name="widget_config_open_app">打开 App 创建</string>
+    <string name="widget_config_confirm">添加</string>
+    <string name="widget_config_cancel">取消</string>
 </resources>

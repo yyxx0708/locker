@@ -101,10 +101,9 @@ fun HomeScreen(
     persons: List<Person>,
     currentPerson: Person?,
     eventTypes: List<EventTypeEntity>,
-    segments: List<WearSegment>,
+    active: WearSegment?,
     snackbarHostState: SnackbarHostState,
 ) {
-    val active = segments.lastOrNull { it.endAt == null }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var eventTypeToAdd by remember { mutableStateOf<EventTypeEntity?>(null) }
     var pendingWearAction by remember { mutableStateOf<WearAction?>(null) }
@@ -352,7 +351,7 @@ fun HomeScreen(
                 label = "button-label",
             ) { wearing ->
                 Text(
-                    text = if (wearing) "开锁" else "锁上",
+                    text = if (wearing) "开锁" else "上锁",
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
@@ -427,13 +426,13 @@ fun HomeScreen(
         val isLock = action == WearAction.LOCK
         val personName = currentPerson?.name ?: "当前人物"
         ConfirmDialog(
-            title = if (isLock) "确认锁上？" else "确认开锁？",
+            title = if (isLock) "确认上锁？" else "确认开锁？",
             message = if (isLock) {
                 "将为「$personName」开始计时。"
             } else {
                 "将结束「$personName」的本次计时。"
             },
-            confirmText = if (isLock) "锁上" else "开锁",
+            confirmText = if (isLock) "上锁" else "开锁",
             icon = { LockConfirmIcon(locking = isLock) },
             tone = if (isLock) ConfirmTone.Primary else ConfirmTone.Neutral,
             originOnScreen = wearDialogOrigin,

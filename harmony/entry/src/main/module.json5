@@ -1,0 +1,129 @@
+{
+  "module": {
+    "name": "entry",
+    "type": "entry",
+    "description": "$string:module_desc",
+    "mainElement": "EntryAbility",
+    "deviceTypes": [
+      "phone",
+      "tablet"
+    ],
+    "deliveryWithInstall": true,
+    "installationFree": false,
+    "pages": "$profile:main_pages",
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.VIBRATE"
+      }
+    ],
+    "abilities": [
+      {
+        "name": "EntryAbility",
+        "srcEntry": "./ets/entryability/EntryAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true,
+        "metadata": [
+          {
+            "name": "ohos.ability.shortcuts",
+            "resource": "$profile:shortcuts_config"
+          }
+        ],
+        "skills": [
+          {
+            "entities": [
+              "entity.system.home"
+            ],
+            "actions": [
+              "action.system.home"
+            ]
+          },
+          {
+            // 接收其他应用分享的同步包
+            "entities": [
+              "entity.system.default"
+            ],
+            "actions": [
+              "ohos.want.action.sendData"
+            ],
+            "uris": [
+              {
+                "type": "application/zip"
+              },
+              {
+                "type": "application/x-zip-compressed"
+              },
+              {
+                "type": "application/octet-stream"
+              }
+            ]
+          },
+          {
+            // 系统文件打开方式要求 file 协议和 FileOpen 标记
+            "actions": [
+              "ohos.want.action.viewData"
+            ],
+            "uris": [
+              {
+                "scheme": "file",
+                "type": "general.zip-archive",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "application/zip",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "application/x-zip-compressed",
+                "linkFeature": "FileOpen"
+              },
+              {
+                "scheme": "file",
+                "type": "application/octet-stream",
+                "linkFeature": "FileOpen"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "extensionAbilities": [
+      {
+        "name": "EntryFormAbility",
+        "srcEntry": "./ets/entryformability/EntryFormAbility.ets",
+        "label": "$string:EntryFormAbility_label",
+        "description": "$string:EntryFormAbility_desc",
+        "type": "form",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_config"
+          }
+        ]
+      },
+      {
+        "name": "EntryFormEditAbility",
+        "srcEntry": "./ets/entryformeditability/EntryFormEditAbility.ets",
+        "type": "formEdit",
+        "exported": true
+      },
+      {
+        "name": "EntryBackupAbility",
+        "srcEntry": "./ets/entrybackupability/EntryBackupAbility.ets",
+        "type": "backup",
+        "exported": false,
+        "metadata": [
+          {
+            "name": "ohos.extension.backup",
+            "resource": "$profile:backup_config"
+          }
+        ]
+      }
+    ]
+  }
+}

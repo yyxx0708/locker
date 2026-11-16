@@ -1,0 +1,67 @@
+{
+  "generatedFromVersion": "2.2.5",
+  "_comment": "由 Android 实现生成，Swift 侧必须逐字段复现",
+  "generator": "app/src/test/java/com/yxsdc/locker/port/FixturesGenerator.kt",
+  "fixtures": [
+    {
+      "file": "backup_v4.json",
+      "what": "JSON 备份 v4，含 2 人物 / 3 事件类型 / 4 分段 / 4 事件 / 3 随机数",
+      "swiftTest": "解析 → 重新编码 → 与原文字段等价"
+    },
+    {
+      "file": "backup_v4_bom.json",
+      "what": "同上但带 UTF-8 BOM",
+      "swiftTest": "解析时必须剥离 BOM"
+    },
+    {
+      "file": "backup_v1.json",
+      "what": "旧版备份，无 persons/eventTypes，分段无 personId",
+      "swiftTest": "降级：归入 id=1 的「我」，使用内置事件类型"
+    },
+    {
+      "file": "backup_v2.json",
+      "what": "有 persons，事件类型固定内置",
+      "swiftTest": "解析出 1 人物 + 2 内置类型"
+    },
+    {
+      "file": "backup_v3.json",
+      "what": "有 eventTypes，无随机数",
+      "swiftTest": "解析出空随机数列表"
+    },
+    {
+      "file": "crypto_vectors.json",
+      "what": "身份码归一化、SHA-256 哈希、PBKDF2 派生密钥、HMAC 签名",
+      "swiftTest": "逐字节比对 hex"
+    },
+    {
+      "file": "aes_gcm_vectors.json",
+      "what": "AES-256-GCM 密文样本",
+      "swiftTest": "用派生密钥解密得到原明文"
+    },
+    {
+      "file": "daily_report.json",
+      "what": "LK2 日报二维码内容与签名",
+      "swiftTest": "解析 11 字段 + 验签 + 重新编码得到同一字符串"
+    },
+    {
+      "file": "stats_expected.json",
+      "what": "月/年统计的边界、桶、总量、事件分布",
+      "swiftTest": "computeStats 结果逐字段相等"
+    },
+    {
+      "file": "time_format.json",
+      "what": "时长格式化全分支输出",
+      "swiftTest": "格式化函数输出字符串相等"
+    },
+    {
+      "file": "sync_package.zip",
+      "what": "真实同步包（外层 zip + 加密载荷 + 内层 zip + 照片）",
+      "swiftTest": "读 manifest → 派生密钥 → 解密 → 解析内层 zip → 比对照片指纹"
+    },
+    {
+      "file": "sync_package_expected.json",
+      "what": "同步包的期望解析结果",
+      "swiftTest": "与解密结果逐字段比对"
+    }
+  ]
+}

@@ -22,8 +22,8 @@ android {
         applicationId = "com.yxsdc.locker"
         minSdk = 26
         targetSdk = 34
-        versionCode = 10
-        versionName = "1.9"
+        versionCode = 20
+        versionName = "2.2.5"
     }
 
     signingConfigs {
@@ -39,8 +39,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8：代码压缩、混淆与资源裁剪
+            isMinifyEnabled = true
+            isShrinkResources = true
             if (keystorePropsFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -88,6 +89,11 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
+
+    // 日报二维码：生成 + 从图片解码
+    implementation("com.google.zxing:core:3.5.3")
+    // 照片随机数离线 OCR（内置拉丁模型，不依赖网络与 Play 服务）
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

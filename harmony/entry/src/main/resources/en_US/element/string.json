@@ -1,0 +1,36 @@
+{
+  "string": [
+    {
+      "name": "shortcut_send_today",
+      "value": "Send Today"
+    },
+    {
+      "name": "module_desc",
+      "value": "Locker main module"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "Offline wear tracking and event log"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "locker"
+    },
+    {
+      "name": "EntryFormAbility_desc",
+      "value": "Shows wear status and today's check-in"
+    },
+    {
+      "name": "EntryFormAbility_label",
+      "value": "Locker Wear Status"
+    },
+    {
+      "name": "widget_display_name",
+      "value": "Locker Wear Status"
+    },
+    {
+      "name": "widget_desc",
+      "value": "Read-only wear duration and check-in status for one person"
+    }
+  ]
+}

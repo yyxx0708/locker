@@ -1,0 +1,36 @@
+{
+  "string": [
+    {
+      "name": "shortcut_send_today",
+      "value": "发送今日数据"
+    },
+    {
+      "name": "module_desc",
+      "value": "Locker 主模块"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "本地离线的佩戴计时与事件记录"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "locker"
+    },
+    {
+      "name": "EntryFormAbility_desc",
+      "value": "显示人物佩戴状态与今日打卡"
+    },
+    {
+      "name": "EntryFormAbility_label",
+      "value": "Locker 佩戴状态"
+    },
+    {
+      "name": "widget_display_name",
+      "value": "Locker 佩戴状态"
+    },
+    {
+      "name": "widget_desc",
+      "value": "只读显示某个人物的佩戴时长与今日打卡"
+    }
+  ]
+}

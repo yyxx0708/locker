@@ -1,5 +1,6 @@
 package com.yxsdc.locker.ui.components
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -40,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -59,6 +61,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -77,7 +80,9 @@ import com.yxsdc.locker.ui.theme.chartPalette
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun MonthCalendar(
@@ -291,6 +296,7 @@ fun DayDetailDialog(
     anchor: YearMonth,
     day: Int,
     dayWearMillis: Long,
+    randomNumber: String?,
     photo: ByteArray?,
     photoEditable: Boolean,
     photoReadOnlyMessage: String?,
@@ -359,6 +365,14 @@ fun DayDetailDialog(
                     text = "佩戴 ${formatDuration(dayWearMillis)}",
                     style = MaterialTheme.typography.titleMedium,
                 )
+                randomNumber?.let { number ->
+                    Text(
+                        text = "当日随机数 $number",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace,
+                        ),
+                    )
+                }
                 DayTimeline(
                     dayStart = dayStart,
                     dayEnd = dayEnd,
@@ -403,6 +417,7 @@ fun DayDetailDialog(
 
                 DayPhotoSection(
                     photo = photo,
+                    randomNumber = randomNumber,
                     editable = photoEditable,
                     readOnlyMessage = photoReadOnlyMessage,
                     onPhotoSelected = onPhotoSelected,
@@ -477,6 +492,7 @@ fun DayDetailDialog(
 @Composable
 private fun DayPhotoSection(
     photo: ByteArray?,
+    randomNumber: String?,
     editable: Boolean,
     readOnlyMessage: String?,
     onPhotoSelected: (ByteArray) -> Unit,
@@ -484,12 +500,22 @@ private fun DayPhotoSection(
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showFullPhoto by remember(photo) { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var ocrRunning by remember(photo) { mutableStateOf(false) }
+    var ocrResult by remember(photo) { mutableStateOf<String?>(null) }
 
-    val bitmap = remember(photo) {
-        photo?.let { bytes ->
-            runCatching {
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-            }.getOrNull()
+    // 主线程不做大图解码：照片在 IO 线程解码完成后再显示
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, photo) {
+        value = withContext(Dispatchers.IO) {
+            photo?.let { bytes ->
+                runCatching {
+                    val options = BitmapFactory.Options().apply {
+                        inPreferredConfig = Bitmap.Config.RGB_565
+                    }
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                        ?.asImageBitmap()
+                }.getOrNull()
+            }
         }
     }
 
@@ -499,18 +525,76 @@ private fun DayPhotoSection(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (bitmap != null) {
-            Image(
-                bitmap = bitmap,
-                contentDescription = "当天照片",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 260.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                    .clickable { showFullPhoto = true },
-            )
+        val preview = bitmap
+        if (photo != null) {
+            if (preview != null) {
+                Image(
+                    bitmap = preview,
+                    contentDescription = "当天照片",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 260.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                        .clickable { showFullPhoto = true },
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(
+                        onClick = {
+                            val jpeg = photo ?: return@TextButton
+                            ocrRunning = true
+                            scope.launch {
+                                ocrResult = try {
+                                    val candidates = recognizeNumberCandidates(jpeg)
+                                    when {
+                                        randomNumber == null -> "当天没有随机数可对照"
+                                        randomNumber in candidates ->
+                                            "✓ 照片号码与当日随机数 $randomNumber 一致"
+                                        candidates.isEmpty() -> "未在照片中识别到 5 位号码"
+                                        else -> "✗ 识别到 ${
+                                            candidates.take(3).joinToString("、")
+                                        }，与当日 $randomNumber 不一致"
+                                    }
+                                } catch (throwable: Throwable) {
+                                    "识别失败：${throwable.message ?: "未知错误"}"
+                                } finally {
+                                    ocrRunning = false
+                                }
+                            }
+                        },
+                        enabled = !ocrRunning,
+                    ) {
+                        Text(if (ocrRunning) "识别中…" else "识别照片号码")
+                    }
+                    ocrResult?.let { result ->
+                        Text(
+                            text = result,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = when {
+                                result.startsWith("✓") -> MaterialTheme.colorScheme.primary
+                                result.startsWith("✗") -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerLow),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "正在加载照片…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         } else if (readOnlyMessage == null) {
             Text(
                 text = "还没有上传照片。",
@@ -546,7 +630,8 @@ private fun DayPhotoSection(
         }
     }
 
-    if (showFullPhoto && bitmap != null) {
+    val fullPhoto = bitmap
+    if (showFullPhoto && fullPhoto != null) {
         val appear = remember { Animatable(0f) }
         val viewerScope = rememberCoroutineScope()
         var viewerClosing by remember { mutableStateOf(false) }
@@ -583,7 +668,7 @@ private fun DayPhotoSection(
                 contentAlignment = Alignment.Center,
             ) {
                 Image(
-                    bitmap = bitmap,
+                    bitmap = fullPhoto,
                     contentDescription = "当天照片",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier

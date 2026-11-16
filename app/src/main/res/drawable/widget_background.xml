@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 常态卡片底：极淡的顶部高光，避免纯色显得扁平 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="24dp" />
+            <gradient
+                android:angle="270"
+                android:endColor="#FCFCFB"
+                android:startColor="#FFFFFF" />
+        </shape>
+    </item>
+</layer-list>

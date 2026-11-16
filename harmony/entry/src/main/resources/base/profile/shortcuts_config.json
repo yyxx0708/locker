@@ -1,0 +1,20 @@
+{
+  "shortcuts": [
+    {
+      "shortcutId": "send_today",
+      "label": "$string:shortcut_send_today",
+      "icon": "$media:startIcon",
+      "visible": true,
+      "wants": [
+        {
+          "bundleName": "com.example.myapplication",
+          "moduleName": "entry",
+          "abilityName": "EntryAbility",
+          "parameters": {
+            "lockerAction": "sendToday"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -15,8 +15,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         EventTypeEntity::class,
         DailyPhoto::class,
         DailyRandomNumber::class,
+        SyncIdentity::class,
     ],
-    version = 5,
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -131,6 +132,51 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sync_identities` (" +
+                        "`identityId` TEXT NOT NULL, " +
+                        "`personId` INTEGER NOT NULL, " +
+                        "`displayName` TEXT NOT NULL, " +
+                        "`code` TEXT NOT NULL, " +
+                        "`codeSalt` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`lastExportedAt` INTEGER, " +
+                        "PRIMARY KEY(`identityId`))"
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_sync_identities_personId` " +
+                        "ON `sync_identities` (`personId`)"
+                )
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_wear_segments_personId_startAt` " +
+                        "ON `wear_segments` (`personId`, `startAt`)"
+                )
+                db.execSQL("DROP INDEX IF EXISTS `index_wear_segments_personId`")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_events_personId_occurredAt` " +
+                        "ON `events` (`personId`, `occurredAt`)"
+                )
+                db.execSQL("DROP INDEX IF EXISTS `index_events_personId`")
+                db.execSQL("DROP INDEX IF EXISTS `index_daily_photos_personId`")
+            }
+        }
+
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `daily_photos` " +
+                        "ADD COLUMN `fingerprint` TEXT NOT NULL DEFAULT ''"
+                )
+            }
+        }
+
         private val CREATE_DEFAULT_DATA = object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
@@ -166,7 +212,15 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "locker.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(
+                        MIGRATION_1_2,
+                        MIGRATION_2_3,
+                        MIGRATION_3_4,
+                        MIGRATION_4_5,
+                        MIGRATION_5_6,
+                        MIGRATION_6_7,
+                        MIGRATION_7_8,
+                    )
                     .addCallback(CREATE_DEFAULT_DATA)
                     .build()
                     .also { instance = it }

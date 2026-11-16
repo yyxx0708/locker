@@ -3,4 +3,10 @@
     <cache-path
         name="camera"
         path="camera/" />
+    <cache-path
+        name="sync"
+        path="sync/" />
+    <cache-path
+        name="share"
+        path="share/" />
 </paths>

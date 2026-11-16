@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.yxsdc.locker.ui.PhotoPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -88,8 +89,15 @@ fun PhotoSourceButton(
     fun process(uri: Uri) {
         processing = true
         scope.launch {
+            val watermarkAt = if (PhotoPreferences.watermarkEnabled(context)) {
+                System.currentTimeMillis()
+            } else {
+                null
+            }
             val bytes = withContext(Dispatchers.IO) {
-                runCatching { loadCompressedJpeg(context, uri) }.getOrNull()
+                runCatching {
+                    loadCompressedJpeg(context, uri, watermarkAt = watermarkAt)
+                }.getOrNull()
             }
             processing = false
             cleanupCameraFile()

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  2×2 紧凑版。
+  结构：顶部「人物 · 呼吸点 佩戴中」→ 大号时长 → 底部打卡徽标。
+  层级：时长最大且等宽；人物名与徽标为辅助信息。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:gravity="center_vertical"
+    android:padding="14dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widget_person"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/app_name"
+            android:textColor="@color/widget_ink"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <!-- 静态呼吸点：RemoteViews 不支持 ViewFlipper 动画，部分启动器会因此加载失败 -->
+        <ImageView
+            android:id="@+id/widget_pulse"
+            android:layout_width="9dp"
+            android:layout_height="9dp"
+            android:layout_marginStart="6dp"
+            android:contentDescription="@null"
+            android:src="@drawable/widget_pulse_bright"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_wearing_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="5dp"
+            android:text="@string/widget_status_wearing"
+            android:textColor="@color/widget_accent"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <Chronometer
+        android:id="@+id/widget_chronometer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:autoSizeMaxTextSize="34sp"
+        android:autoSizeMinTextSize="18sp"
+        android:autoSizeStepGranularity="1sp"
+        android:autoSizeTextType="uniform"
+        android:fontFamily="monospace"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:textColor="@color/widget_ink"
+        android:textSize="34sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/widget_idle_duration"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:text="@string/widget_status_idle"
+        android:textColor="@color/widget_muted"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_checkin"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/widget_badge_pending"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:paddingStart="8dp"
+        android:paddingTop="2dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="2dp"
+        android:text="@string/widget_checkin_pending"
+        android:textColor="@color/widget_badge_text_pending"
+        android:textSize="10sp" />
+</LinearLayout>

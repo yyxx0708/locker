@@ -6,7 +6,7 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "wear_segments",
-    indices = [Index("personId")],
+    indices = [Index(value = ["personId", "startAt"])],
 )
 data class WearSegment(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

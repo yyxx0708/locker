@@ -6,7 +6,7 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "events",
-    indices = [Index("personId")],
+    indices = [Index(value = ["personId", "occurredAt"])],
 )
 data class EventRecord(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

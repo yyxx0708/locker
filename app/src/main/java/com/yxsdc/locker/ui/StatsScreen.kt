@@ -2,6 +2,7 @@ package com.yxsdc.locker.ui
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.LruCache
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -49,6 +50,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -66,6 +68,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yxsdc.locker.data.DailyPhoto
+import com.yxsdc.locker.data.DailyRandomNumber
 import com.yxsdc.locker.data.EventRecord
 import com.yxsdc.locker.data.EventTypeEntity
 import com.yxsdc.locker.data.Person
@@ -73,6 +76,7 @@ import com.yxsdc.locker.data.WearSegment
 import com.yxsdc.locker.domain.EventTypeStat
 import com.yxsdc.locker.domain.SegmentDetail
 import com.yxsdc.locker.domain.StatsMode
+import com.yxsdc.locker.domain.StatsResult
 import com.yxsdc.locker.domain.computeStats
 import com.yxsdc.locker.domain.formatDate
 import com.yxsdc.locker.domain.formatDateTime
@@ -95,10 +99,38 @@ import com.yxsdc.locker.ui.theme.chartPalette
 import com.yxsdc.locker.ui.theme.lockerCardColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
+
+private data class StatsPeriodData(
+    val anchor: YearMonth,
+    val mode: StatsMode,
+    val segments: List<WearSegment>,
+    val events: List<EventRecord>,
+)
+
+private data class ThumbnailKey(val personId: Long, val epochDay: Long)
+
+private class CachedThumbnail(val updatedAt: Long, val bitmap: ImageBitmap)
+
+/** 月历缩略图跨月缓存：按 (人物, 日期) 键控，照片更新后自动失效。 */
+private val monthThumbnailCache = LruCache<ThumbnailKey, CachedThumbnail>(64)
+
+private fun cachedThumbnail(photo: DailyPhoto): ImageBitmap? {
+    val cached = monthThumbnailCache.get(ThumbnailKey(photo.personId, photo.epochDay))
+    return cached?.takeIf { it.updatedAt == photo.updatedAt }?.bitmap
+}
+
+private fun cacheThumbnail(photo: DailyPhoto, bitmap: ImageBitmap) {
+    monthThumbnailCache.put(
+        ThumbnailKey(photo.personId, photo.epochDay),
+        CachedThumbnail(photo.updatedAt, bitmap),
+    )
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -107,12 +139,18 @@ fun StatsScreen(
     persons: List<Person>,
     currentPerson: Person?,
     eventTypes: List<EventTypeEntity>,
-    segments: List<WearSegment>,
-    events: List<EventRecord>,
 ) {
     val mode by viewModel.statsMode.collectAsStateWithLifecycle()
     val anchor by viewModel.statsAnchor.collectAsStateWithLifecycle()
-    val hasActive = segments.any { it.endAt == null }
+    // 周期数据带上自己的 anchor/mode：切换周期时，新数据到达前继续用上一份结果，
+    // 避免旧周期的数据被误当成新周期统计。
+    val periodData by remember(anchor, mode) {
+        combine(
+            viewModel.observeStatsSegments(anchor, mode),
+            viewModel.observeStatsEvents(anchor, mode),
+        ) { segments, events -> StatsPeriodData(anchor, mode, segments, events) }
+    }.collectAsStateWithLifecycle(initialValue = null)
+    val hasActive = periodData?.segments?.any { it.endAt == null } == true
 
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(hasActive, currentPerson?.id) {
@@ -126,21 +164,53 @@ fun StatsScreen(
         }
     }
 
-    val stats = remember(segments, events, eventTypes, mode, anchor, now) {
-        computeStats(
-            segments = segments,
-            events = events,
+    val currentStats = remember(periodData, eventTypes, now) {
+        periodData?.let { data ->
+            computeStats(
+                segments = data.segments,
+                events = data.events,
+                eventTypes = eventTypes,
+                mode = data.mode,
+                anchor = data.anchor,
+                zone = ZoneId.systemDefault(),
+                now = now,
+            )
+        }
+    }
+    var lastStats by remember { mutableStateOf<Pair<StatsMode, StatsResult>?>(null) }
+    // 保存每个访问过的月份的统计快照，月历切换动画期间旧月份仍显示自己的数据
+    val monthStatsByAnchor = remember { mutableStateMapOf<YearMonth, StatsResult>() }
+    LaunchedEffect(periodData, currentStats) {
+        val data = periodData ?: return@LaunchedEffect
+        val snapshot = currentStats ?: return@LaunchedEffect
+        lastStats = data.mode to snapshot
+        if (data.mode == StatsMode.MONTH) {
+            monthStatsByAnchor[data.anchor] = snapshot
+            if (monthStatsByAnchor.size > 12) {
+                monthStatsByAnchor.keys.firstOrNull()?.let { monthStatsByAnchor.remove(it) }
+            }
+        }
+    }
+    // 切换周期时先用上一条同模式的结果占位，避免月/年数据形态不匹配
+    val stats = currentStats
+        ?: lastStats?.takeIf { it.first == mode }?.second
+        ?: computeStats(
+            segments = emptyList(),
+            events = emptyList(),
             eventTypes = eventTypes,
             mode = mode,
             anchor = anchor,
-            zone = ZoneId.systemDefault(),
-            now = now,
         )
-    }
     val typeByKey = remember(eventTypes) { eventTypes.associateBy { it.typeKey } }
 
-    val dailyPhotos by remember(anchor) { viewModel.dailyPhotosForMonth(anchor) }
-        .collectAsStateWithLifecycle(initialValue = emptyList<DailyPhoto>())
+    // 月历只在「月」模式显示，年模式不再加载整月照片与随机数
+    val dailyPhotos by remember(anchor, mode) {
+        if (mode == StatsMode.MONTH) {
+            viewModel.dailyPhotosForMonth(anchor)
+        } else {
+            flowOf(emptyList())
+        }
+    }.collectAsStateWithLifecycle(initialValue = emptyList<DailyPhoto>())
     val photosByDay = remember(dailyPhotos) {
         dailyPhotos.associateBy { LocalDate.ofEpochDay(it.epochDay).dayOfMonth }
     }
@@ -155,14 +225,15 @@ fun StatsScreen(
                 inPreferredConfig = Bitmap.Config.RGB_565
             }
             dailyPhotos.mapNotNull { photo ->
-                runCatching {
+                val bitmap = cachedThumbnail(photo) ?: runCatching {
                     BitmapFactory.decodeByteArray(
                         photo.jpeg,
                         0,
                         photo.jpeg.size,
                         options,
                     )?.asImageBitmap()
-                }.getOrNull()?.let { photo.epochDay to it }
+                }.getOrNull()?.also { cacheThumbnail(photo, it) }
+                bitmap?.let { photo.epochDay to it }
             }.toMap()
         }
     }
@@ -176,6 +247,17 @@ fun StatsScreen(
     var selectedDayOrigin by remember { mutableStateOf<Offset?>(null) }
     var quickDeleteSegment by remember { mutableStateOf<WearSegment?>(null) }
     var quickDeleteEvent by remember { mutableStateOf<EventRecord?>(null) }
+
+    val monthlyNumbers by remember(anchor, mode) {
+        if (mode == StatsMode.MONTH) {
+            viewModel.observeMonthlyRandomNumbers(anchor)
+        } else {
+            flowOf(emptyList())
+        }
+    }.collectAsStateWithLifecycle(initialValue = emptyList<DailyRandomNumber>())
+    val numbersByEpochDay = remember(monthlyNumbers) {
+        monthlyNumbers.associateBy { it.epochDay }
+    }
 
     val groupedEvents = remember(stats.eventDetails) {
         stats.eventDetails.groupBy { formatDate(it.occurredAt) }
@@ -305,11 +387,8 @@ fun StatsScreen(
                     anchor = anchor,
                     wearBuckets = stats.wearBuckets,
                     eventStats = stats.eventStats,
-                    segments = segments,
-                    events = events,
-                    eventTypes = eventTypes,
+                    monthStatsByAnchor = monthStatsByAnchor,
                     dayPhotoBitmaps = photoBitmaps,
-                    now = now,
                     onDayClick = { day, origin ->
                         selectedDayOrigin = origin
                         selectedDay = day
@@ -437,6 +516,7 @@ fun StatsScreen(
             anchor = anchor,
             day = day,
             dayWearMillis = stats.wearBuckets.getOrElse(day - 1) { 0L },
+            randomNumber = numbersByEpochDay[dayDate.toEpochDay()]?.number,
             photo = photosByDay[day]?.jpeg,
             photoEditable = currentPerson != null && !isFuture,
             photoReadOnlyMessage = if (isFuture) {
@@ -539,11 +619,8 @@ private fun CalendarCard(
     anchor: YearMonth,
     wearBuckets: List<Long>,
     eventStats: List<EventTypeStat>,
-    segments: List<WearSegment>,
-    events: List<EventRecord>,
-    eventTypes: List<EventTypeEntity>,
+    monthStatsByAnchor: Map<YearMonth, StatsResult>,
     dayPhotoBitmaps: Map<Long, ImageBitmap>,
-    now: Long,
     onDayClick: (day: Int, originOnScreen: Offset?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -581,21 +658,8 @@ private fun CalendarCard(
                 },
                 label = "month-calendar",
             ) { month ->
-                // 过渡期间每个月份用自己那一份数据，避免旧月份格子上闪现新月份的热度
-                val monthStats = remember(month, anchor, segments, events, eventTypes, now) {
-                    if (month == anchor) {
-                        null
-                    } else {
-                        computeStats(
-                            segments = segments,
-                            events = events,
-                            eventTypes = eventTypes,
-                            mode = StatsMode.MONTH,
-                            anchor = month,
-                            now = now,
-                        )
-                    }
-                }
+                // 过渡期间每个月份用自己那一份快照，避免旧月份格子上闪现新月份的热度
+                val monthStats = if (month == anchor) null else monthStatsByAnchor[month]
                 val monthWear = monthStats?.wearBuckets ?: wearBuckets
                 val monthEventStats = monthStats?.eventStats ?: eventStats
                 // 当前月跟随最新缩略图；退出中的月份保留离开时的快照，照片不会在收起过程中被清空

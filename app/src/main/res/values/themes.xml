@@ -4,4 +4,10 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
+
+    <!-- 小组件配置界面：跟随系统深浅色（values-night 下有对应定义） -->
+    <style name="Theme.Locker.WidgetConfig" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#F9F9F7</item>
+        <item name="android:colorAccent">#2A78D6</item>
+    </style>
 </resources>

@@ -14,11 +14,30 @@
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/x-zip-compressed" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/x-zip-compressed" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <provider
@@ -30,6 +49,31 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- 桌面小组件：只读显示某个人物的佩戴状态与今日打卡 -->
+        <receiver
+            android:name=".widget.LockerWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.yxsdc.locker.widget.REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/locker_widget_info" />
+        </receiver>
+
+        <!-- 小组件配置：选择绑定人物 -->
+        <activity
+            android:name=".widget.WidgetConfigActivity"
+            android:exported="true"
+            android:label="@string/widget_config_title"
+            android:theme="@style/Theme.Locker.WidgetConfig">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

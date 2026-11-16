@@ -1,0 +1,9 @@
+{
+  "name": "entry",
+  "version": "2.2.5",
+  "description": "Locker 主模块",
+  "main": "",
+  "author": "yxsdc",
+  "license": "MIT",
+  "dependencies": {}
+}

@@ -1,0 +1,77 @@
+{
+  "cases": [
+    {
+      "duration": "0 分",
+      "durationWithSeconds": "00:00:00",
+      "durationShort": "0分",
+      "millis": 0
+    },
+    {
+      "duration": "0 分",
+      "durationWithSeconds": "00:00:01",
+      "durationShort": "0分",
+      "millis": 1000
+    },
+    {
+      "duration": "0 分",
+      "durationWithSeconds": "00:00:59",
+      "durationShort": "0分",
+      "millis": 59000
+    },
+    {
+      "duration": "1 分",
+      "durationWithSeconds": "00:01:00",
+      "durationShort": "1分",
+      "millis": 60000
+    },
+    {
+      "duration": "1 分",
+      "durationWithSeconds": "00:01:01",
+      "durationShort": "1分",
+      "millis": 61000
+    },
+    {
+      "duration": "1 小时 0 分",
+      "durationWithSeconds": "01:00:00",
+      "durationShort": "1时0分",
+      "millis": 3600000
+    },
+    {
+      "duration": "1 小时 1 分",
+      "durationWithSeconds": "01:01:01",
+      "durationShort": "1时1分",
+      "millis": 3661000
+    },
+    {
+      "duration": "1 天 0 小时 0 分",
+      "durationWithSeconds": "1天 00:00:00",
+      "durationShort": "1天0时",
+      "millis": 86400000
+    },
+    {
+      "duration": "1 天 1 小时 0 分",
+      "durationWithSeconds": "1天 01:00:00",
+      "durationShort": "1天1时",
+      "millis": 90000000
+    },
+    {
+      "duration": "1 天 1 小时 1 分",
+      "durationWithSeconds": "1天 01:01:01",
+      "durationShort": "1天1时",
+      "millis": 90061000
+    },
+    {
+      "duration": "2 天 5 小时 7 分",
+      "durationWithSeconds": "2天 05:07:00",
+      "durationShort": "2天5时",
+      "millis": 191220000
+    },
+    {
+      "duration": "0 分",
+      "durationWithSeconds": "00:00:00",
+      "durationShort": "0分",
+      "millis": -1
+    }
+  ],
+  "_comment": "formatDuration 精确到分；formatDurationWithSeconds 保留秒；formatDurationShort 用于图表"
+}

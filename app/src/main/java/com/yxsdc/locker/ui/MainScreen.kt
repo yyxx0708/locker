@@ -23,9 +23,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -44,8 +47,9 @@ fun LockerRoot(viewModel: LockerViewModel) {
     val persons by viewModel.persons.collectAsStateWithLifecycle()
     val currentPerson by viewModel.currentPerson.collectAsStateWithLifecycle()
     val eventTypes by viewModel.eventTypes.collectAsStateWithLifecycle()
-    val segments by viewModel.segments.collectAsStateWithLifecycle()
-    val events by viewModel.events.collectAsStateWithLifecycle()
+    val activeSegment by viewModel.activeSegment.collectAsStateWithLifecycle()
+    val segmentCount by viewModel.segmentCount.collectAsStateWithLifecycle()
+    val eventCount by viewModel.eventCount.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.messages.collect { message ->
@@ -53,8 +57,37 @@ fun LockerRoot(viewModel: LockerViewModel) {
         }
     }
 
-    BackHandler(enabled = pagerState.currentPage != 0) {
+    var showGuide by rememberSaveable { mutableStateOf(false) }
+
+    // 指南页有自己的返回处理，显示时让底部导航的返回让位
+    BackHandler(enabled = !showGuide && pagerState.currentPage != 0) {
         scope.launch { pagerState.animateScrollToPage(0) }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.syncNavigation.collect {
+            pagerState.animateScrollToPage(1)
+        }
+    }
+
+    // 桌面快捷方式「发送今日数据」：先切到打卡页，由页面自己打开发送弹窗
+    val sendTodayRequested by viewModel.sendTodayRequested.collectAsStateWithLifecycle()
+    LaunchedEffect(sendTodayRequested) {
+        if (sendTodayRequested) {
+            pagerState.animateScrollToPage(2)
+        }
+    }
+
+    val pendingSharedZip by viewModel.pendingSharedZip.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingSharedZip) {
+        if (pendingSharedZip != null) {
+            pagerState.animateScrollToPage(3)
+        }
+    }
+
+    if (showGuide) {
+        GuideScreen(onBack = { showGuide = false })
+        return
     }
 
     Scaffold(
@@ -116,7 +149,7 @@ fun LockerRoot(viewModel: LockerViewModel) {
                         persons,
                         currentPerson,
                         eventTypes,
-                        segments,
+                        activeSegment,
                         snackbarHostState,
                     )
                     1 -> StatsScreen(
@@ -124,8 +157,6 @@ fun LockerRoot(viewModel: LockerViewModel) {
                         persons,
                         currentPerson,
                         eventTypes,
-                        segments,
-                        events,
                     )
                     2 -> RandomNumberScreen(viewModel)
                     else -> SettingsScreen(
@@ -133,9 +164,10 @@ fun LockerRoot(viewModel: LockerViewModel) {
                         persons,
                         currentPerson,
                         eventTypes,
-                        segments,
-                        events,
+                        segmentCount,
+                        eventCount,
                         snackbarHostState,
+                        onOpenGuide = { showGuide = true },
                     )
                 }
             }

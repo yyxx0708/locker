@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 已打卡徽标：与 App 内 primaryContainer 一致 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#D7E7FB" />
+    <corners android:radius="999dp" />
+</shape>

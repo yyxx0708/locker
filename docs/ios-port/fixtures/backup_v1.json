@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": 1700000000000,
+  "events": [
+    {
+      "note": null,
+      "occurredAt": 1699156800000,
+      "type": "locked"
+    },
+    {
+      "note": "旧版备注",
+      "occurredAt": 1699182000000,
+      "type": "unlocked"
+    }
+  ],
+  "segments": [
+    {
+      "endAt": 1699181100000,
+      "startAt": 1699144200000
+    },
+    {
+      "endAt": null,
+      "startAt": 1700442000000
+    }
+  ]
+}

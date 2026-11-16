@@ -1,0 +1,20 @@
+{
+  "persons": [{
+    "createdAt": 1700000000000,
+    "name": "我",
+    "id": 1
+  }],
+  "schemaVersion": 2,
+  "exportedAt": 1700000000000,
+  "events": [{
+    "note": null,
+    "occurredAt": 1699156800000,
+    "personId": 1,
+    "type": "locked"
+  }],
+  "segments": [{
+    "personId": 1,
+    "endAt": 1699181100000,
+    "startAt": 1699144200000
+  }]
+}
